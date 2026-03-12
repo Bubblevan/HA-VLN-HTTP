@@ -1,0 +1,17 @@
+# Nonlearning eval 用 HA-VLN 任务配置（从 agent 目录运行时使用）
+# 用法：在 agent 目录下
+#   python run.py --exp-config config/nonlearning_havlnce.yaml --run-type eval EVAL.SPLIT val_unseen EVAL.EPISODE_COUNT 10
+BASE_TASK_CONFIG_PATH: ../HASimulator/config/HAVLNCE_task.yaml
+EVAL:
+    SPLIT: val_unseen
+    EPISODE_COUNT: 10
+    EVAL_NONLEARNING: True
+    NONLEARNING:
+        AGENT: RandomAgent
+
+INFERENCE:
+    SPLIT: val_unseen
+    PREDICTIONS_FILE: predictions.json
+    INFERENCE_NONLEARNING: True
+    NONLEARNING:
+        AGENT: "RandomAgent"

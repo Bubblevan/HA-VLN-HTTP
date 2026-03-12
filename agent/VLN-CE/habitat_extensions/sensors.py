@@ -3,7 +3,10 @@ from typing import Any
 
 import numpy as np
 from gym import Space, spaces
-from habitat.config import Config
+try:
+    from habitat.config import Config
+except ImportError:
+    from yacs.config import CfgNode as Config
 from habitat.core.registry import registry
 from habitat.core.simulator import Sensor, SensorTypes, Simulator
 from habitat.sims.habitat_simulator.actions import HabitatSimActions

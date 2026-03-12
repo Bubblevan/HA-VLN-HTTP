@@ -210,7 +210,7 @@ class HAVLNCE():
                     self._sim.step_physics(1.0 / 5.0)
                     self.previous_human_object_ids.append(object_id)
             
-            self._sim._human_posisions = human_positions
+            self._sim._human_positions = human_positions
     
     def __init_manager__(self):
 

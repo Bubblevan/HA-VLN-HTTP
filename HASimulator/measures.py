@@ -3,7 +3,10 @@ from typing import Any, List, Union, Tuple, Optional
 
 import numpy as np
 
-from habitat.config import Config
+try:
+    from habitat.config import Config
+except ImportError:
+    from yacs.config import CfgNode as Config
 from habitat.core.embodied_task import Action, EmbodiedTask, Measure
 from habitat.core.logging import logger
 from habitat.core.registry import registry
@@ -52,7 +55,7 @@ class DistanceToHuman(Measure):
         state = self._sim.get_agent_state()
         current_position = state.position
         current_rotation = state.rotation
-        human_positions = self._sim._human_posisions
+        human_positions = getattr(self._sim, "_human_positions", None) or {}
         for name, (position, rotation) in human_positions.items():
             distance_to_human = euclidean_distance(
                     current_position,

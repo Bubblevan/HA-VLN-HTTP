@@ -5,7 +5,10 @@ from typing import Dict, List, Sequence, Tuple, Union
 import numpy as np
 import torch
 from gym import Space, spaces
-from habitat.config import Config
+try:
+    from habitat.config import Config
+except ImportError:
+    from yacs.config import CfgNode as Config
 from habitat.core.logging import logger
 from habitat.core.simulator import Observations
 from habitat_baselines.common.baseline_registry import baseline_registry

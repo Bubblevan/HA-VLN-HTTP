@@ -6,7 +6,11 @@ from typing import Any, List, Union
 import numpy as np
 from dtw import dtw
 from fastdtw import fastdtw
-from habitat.config import Config
+try:
+    from habitat.config import Config
+except ImportError:
+    # 新版 habitat-lab 使用 OmegaConf，不再导出 Config；在 InternNav 等环境下用 yacs 兼容
+    from yacs.config import CfgNode as Config
 from habitat.core.dataset import Episode
 from habitat.core.embodied_task import Action, EmbodiedTask, Measure
 from habitat.core.logging import logger

@@ -1,9 +1,32 @@
+import os
+import sys
 from typing import List, Optional, Union
 
-from habitat.config.default import Config as CN
-from habitat.config.default import get_config
+def _load_havln_config():
+    """当 habitat 为新版（OmegaConf）时，从 HA-VLN habitat-lab 加载旧版 Config/get_config。
+    加载后不恢复 sys.modules，以便 vlnce_baselines 等后续导入能使用旧版 habitat。"""
+    try:
+        from habitat.config.default import Config as _CN
+        from habitat.config.default import get_config as _get_config
+        return _CN, _get_config()
+    except (ImportError, AttributeError):
+        pass
+    _dir = os.path.dirname(os.path.abspath(__file__))
+    # config/ -> habitat_extensions/ -> VLN-CE/ -> agent/ -> HA-VLN root
+    _ha_habitat_lab = os.path.abspath(os.path.join(_dir, "..", "..", "..", "..", "habitat-lab"))
+    if not os.path.isdir(_ha_habitat_lab):
+        raise ImportError("HA-VLN habitat-lab not found for config fallback: %s" % _ha_habitat_lab)
+    for k in list(sys.modules.keys()):
+        if k == "habitat" or k.startswith("habitat."):
+            del sys.modules[k]
+    if _ha_habitat_lab not in sys.path:
+        sys.path.insert(0, _ha_habitat_lab)
+    from habitat.config.default import Config as _CN
+    from habitat.config.default import get_config as _get_config
+    return _CN, _get_config()
 
-_C = get_config()
+CN, _base_config = _load_havln_config()
+_C = _base_config
 _C.defrost()
 
 # ----------------------------------------------------------------------------

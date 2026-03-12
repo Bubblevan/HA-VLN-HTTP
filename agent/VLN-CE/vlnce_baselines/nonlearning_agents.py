@@ -47,7 +47,9 @@ def evaluate_agent(config: Config) -> None:
             obs = env.step(action)
 
         for m, v in env.get_metrics().items():
-            stats[m] += v
+            if isinstance(v, (int, float)):
+                stats[m] += v
+            # 跳过 dict 等非数值 metric（如 distance_to_human 在无 human 时返回 {}）
 
     stats = {k: v / num_episodes for k, v in stats.items()}
 
