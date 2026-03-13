@@ -50,6 +50,36 @@ SERVER_STATE: Dict[str, Any] = {
 }
 
 
+def current_havln_debug_state() -> Dict[str, Any]:
+    env = SERVER_STATE.get("env")
+    if env is None:
+        return {}
+
+    debug: Dict[str, Any] = {}
+    havln_tool = getattr(env, "havlnce_tool", None)
+    if havln_tool is not None:
+        frame_id = getattr(havln_tool, "frame_id", None)
+        total_signals_sent = getattr(havln_tool, "total_signals_sent", None)
+        if frame_id is not None:
+            debug["frame_id"] = int(frame_id)
+        if total_signals_sent is not None:
+            debug["total_signals_sent"] = int(total_signals_sent)
+
+    sim = getattr(getattr(env, "_env", None), "_sim", None)
+    human_positions = getattr(sim, "_human_positions", None) if sim is not None else None
+    if isinstance(human_positions, dict):
+        debug["human_count_live"] = len(human_positions)
+        debug["human_positions"] = {
+            viewpoint: {
+                "position": np.asarray(position).tolist(),
+                "rotation_euler": list(rotation_euler),
+            }
+            for viewpoint, (position, rotation_euler) in human_positions.items()
+        }
+
+    return debug
+
+
 def encode_rgb(rgb: np.ndarray) -> str:
     buf = io.BytesIO()
     Image.fromarray(rgb).save(buf, format="PNG")
@@ -93,6 +123,10 @@ def current_episode_payload():
 
 
 def obs_payload(obs, done: bool):
+    metrics = summarize_metrics(SERVER_STATE["last_metrics"])
+    debug_state = current_havln_debug_state()
+    if debug_state:
+        metrics["havln_debug_state"] = debug_state
     payload = current_episode_payload()
     payload.update(
         {
@@ -100,7 +134,7 @@ def obs_payload(obs, done: bool):
             "rgb_png_b64": encode_rgb(obs["rgb"]),
             "depth_npy_b64": encode_depth(obs["depth"]),
             "obs_keys": sorted(obs.keys()),
-            "metrics": summarize_metrics(SERVER_STATE["last_metrics"]),
+            "metrics": metrics,
             "capabilities": SERVER_STATE["capabilities"],
         }
     )

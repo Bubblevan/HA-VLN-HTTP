@@ -150,3 +150,6 @@ Data/HA-R2R/val_unseen/
 Data/HAPS2_0/human_motion_glbs_v3/
 Data/Multi-Human-Annotations/multiview4_0/
 Data/scene_datasets/
+
+habitat-lab/
+habitat-sim/
