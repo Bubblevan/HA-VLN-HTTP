@@ -1,0 +1,7 @@
+BASE_TASK_CONFIG_PATH: ../HASimulator/config/HAVLNCE_task_internnav.yaml
+EVAL:
+  SPLIT: val_unseen
+  EPISODE_COUNT: 32
+  EVAL_NONLEARNING: True
+  NONLEARNING:
+    AGENT: RandomAgent

@@ -34,7 +34,10 @@ ACTION_MAP = {
     1: "MOVE_FORWARD",
     2: "TURN_LEFT",
     3: "TURN_RIGHT",
+    4: "LOOK_UP",
+    5: "LOOK_DOWN",
 }
+PITCH_ACTIONS = {4, 5}
 
 app = Flask(__name__)
 SERVER_STATE: Dict[str, Any] = {
@@ -142,6 +145,11 @@ def obs_payload(obs, done: bool):
         payload["lookdown_rgb_png_b64"] = encode_rgb(obs["lookdown_rgb"])
     if "lookdown_depth" in obs:
         payload["lookdown_depth_npy_b64"] = encode_depth(obs["lookdown_depth"])
+    if "gps" in obs:
+        payload["gps"] = np.asarray(obs["gps"], dtype=np.float64).tolist()
+    if "compass" in obs:
+        val = obs["compass"]
+        payload["compass"] = float(val[0]) if np.ndim(val) else float(val)
     return payload
 
 
@@ -208,7 +216,20 @@ def step():
     if action_code not in ACTION_MAP:
         return jsonify({"error": f"unsupported_action:{action_code}"}), 400
 
-    obs, reward, done, info = env.step(ACTION_MAP[action_code])
+    action_name = ACTION_MAP[action_code]
+    try:
+        if action_code in PITCH_ACTIONS:
+            obs = env.habitat_env.step(action_name)
+            done = env.habitat_env.episode_over
+            info = env.habitat_env.get_metrics()
+            reward = 0.0
+        else:
+            obs, reward, done, info = env.step(action_name)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"step_exception:{e}", "action": action_code}), 500
+
     SERVER_STATE["last_obs"] = obs
     SERVER_STATE["last_metrics"] = info
     payload = obs_payload(obs, done=done)
@@ -223,6 +244,17 @@ def close():
         env.close()
         SERVER_STATE["env"] = None
     return jsonify({"closed": True})
+
+
+def _filter_episodes(episodes, scene_filter, episode_filter):
+    filtered = episodes
+    if scene_filter:
+        scene_ids = {s.strip() for s in scene_filter.split(",")}
+        filtered = [ep for ep in filtered if ep.scene_id.split("/")[-2] in scene_ids]
+    if episode_filter:
+        ep_ids = {int(e.strip()) for e in episode_filter.split(",")}
+        filtered = [ep for ep in filtered if int(ep.episode_id) in ep_ids]
+    return filtered
 
 
 def build_env(args):
@@ -243,13 +275,28 @@ def build_env(args):
         cfg.freeze()
     env = HAVLNCEDaggerEnv(cfg)
     SERVER_STATE["env"] = env
-    SERVER_STATE["episodes"] = list(env.episodes)
+
+    episodes = list(env.episodes)
+    if args.scene_filter or args.episode_filter:
+        episodes = _filter_episodes(episodes, args.scene_filter, args.episode_filter)
+        print(f"Episode filter: {len(list(env.episodes))} -> {len(episodes)} episodes")
+
+    SERVER_STATE["episodes"] = episodes
     SERVER_STATE["episode_index"] = 0
     SERVER_STATE["max_episodes"] = args.max_episodes
+
+    sim_cfg = cfg.TASK_CONFIG.SIMULATOR
     SERVER_STATE["capabilities"] = {
         "has_external_lookdown_views": bool(args.enable_lookdown_sensors),
         "lookdown_degrees": float(args.lookdown_degrees) if args.enable_lookdown_sensors else None,
         "split": args.split,
+        "has_gps": "GPS_SENSOR" in list(cfg.TASK_CONFIG.TASK.SENSORS),
+        "has_compass": "COMPASS_SENSOR" in list(cfg.TASK_CONFIG.TASK.SENSORS),
+        "rgb_width": int(sim_cfg.RGB_SENSOR.WIDTH),
+        "rgb_height": int(sim_cfg.RGB_SENSOR.HEIGHT),
+        "rgb_hfov": int(sim_cfg.RGB_SENSOR.HFOV),
+        "depth_width": int(sim_cfg.DEPTH_SENSOR.WIDTH),
+        "depth_height": int(sim_cfg.DEPTH_SENSOR.HEIGHT),
     }
 
 
@@ -277,12 +324,16 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Serve HA-VLN HAVLNCEDaggerEnv over HTTP.")
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8899)
-    parser.add_argument("--config-path", default="config/cma_pm_da_aug_tune.yaml")
+    parser.add_argument("--config-path", default="config/internnav_bridge.yaml")
     parser.add_argument("--split", default="val_unseen")
     parser.add_argument("--max-episodes", type=int, default=1)
     parser.add_argument("--enable-lookdown-sensors", action="store_true", default=True)
     parser.add_argument("--disable-lookdown-sensors", action="store_false", dest="enable_lookdown_sensors")
     parser.add_argument("--lookdown-degrees", type=float, default=30.0)
+    parser.add_argument("--scene-filter", type=str, default=None,
+                        help="Comma-separated scene IDs to keep (e.g. 'x8F5xyUWy9e,zsNo4HB9uLZ')")
+    parser.add_argument("--episode-filter", type=str, default=None,
+                        help="Comma-separated episode IDs to keep (e.g. '1,2,505')")
     return parser.parse_args()
 
 

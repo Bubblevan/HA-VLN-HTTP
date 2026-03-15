@@ -2,7 +2,7 @@ ENVIRONMENT:
   MAX_EPISODE_STEPS: 500
 SIMULATOR:
   ADD_HUMAN: False
-  HUMAN_GLB_PATH: ../Data/HAPS2_0/human_motion_glbs_v3
+  HUMAN_GLB_PATH: ../Data/HAPS2_0
   HUMAN_INFO_PATH: ../Data/Multi-Human-Annotations/human_motion.json
   RECOMPUTE_NAVMESH_PATH: ../Data/recompute_navmesh
   HUMAN_COUNTING: False
